@@ -14,7 +14,7 @@ Comandos:
 - docker compose up -d
 
 Apps:
-- Frontend: http://localhost:3000
+- Frontend: http://localhost:4321
 - Backend: http://localhost:8080
 
 Environment variables you may want to adjust:
