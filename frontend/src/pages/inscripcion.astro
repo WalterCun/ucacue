@@ -16,6 +16,7 @@ import Navbar from "../components/Navbar.astro";
       <div>
         <label class="label" for="cedula">Cédula</label>
         <input id="cedula" name="cedula" class="input" required />
+        <p id="cedula-help" class="text-xs mt-1 text-gray-500">Ingrese 10 dígitos. Se validará automáticamente.</p>
       </div>
       <div>
         <label class="label" for="email">Correo electrónico</label>
@@ -36,17 +37,17 @@ import Navbar from "../components/Navbar.astro";
       </div>
 
       <div class="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2 bg-white border rounded p-3">
-        <div>
-          <div class="text-xs text-gray-500">Subtotal</div>
-          <div id="subtotal-view" class="text-lg font-semibold">$100.00</div>
+        <div class="rounded p-2 bg-blue-50">
+          <div class="text-xs text-blue-700">Subtotal</div>
+          <div id="subtotal-view" class="text-lg font-semibold text-blue-800">$100.00</div>
         </div>
-        <div>
-          <div class="text-xs text-gray-500">Descuento</div>
-          <div id="descuento-view" class="text-lg font-semibold">$0.00</div>
+        <div class="rounded p-2 bg-emerald-50">
+          <div class="text-xs text-emerald-700">Descuento</div>
+          <div id="descuento-view" class="text-lg font-semibold text-emerald-800">$0.00</div>
         </div>
-        <div>
-          <div class="text-xs text-gray-500">Total a pagar</div>
-          <div id="total-view" class="text-lg font-semibold">$100.00</div>
+        <div class="rounded p-2 bg-indigo-50">
+          <div class="text-xs text-indigo-700">Total a pagar</div>
+          <div id="total-view" class="text-lg font-semibold text-indigo-800">$100.00</div>
         </div>
       </div>
 
@@ -151,6 +152,41 @@ import Navbar from "../components/Navbar.astro";
 
   document.getElementById('colegio_id')?.addEventListener('change', actualizarTotales);
 
+  // Validación en tiempo real de cédula
+  const cedulaInput = document.getElementById('cedula');
+  const cedulaHelp = document.getElementById('cedula-help');
+  function applyCedulaFeedback(ok) {
+    if (!cedulaInput) return;
+    cedulaInput.classList.toggle('border-red-500', !ok);
+    cedulaInput.classList.toggle('focus:border-red-500', !ok);
+    cedulaInput.classList.toggle('border-emerald-500', ok);
+    if (cedulaHelp) {
+      cedulaHelp.textContent = ok ? 'Cédula válida.' : 'Cédula inválida. Debe tener 10 dígitos y pasar la validación.';
+      cedulaHelp.className = 'text-xs mt-1 ' + (ok ? 'text-emerald-700' : 'text-red-600');
+    }
+  }
+  cedulaInput?.addEventListener('input', (e) => {
+    // permitir solo números y máximo 10
+    const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+    if (val !== e.target.value) e.target.value = val;
+    if (val.length === 0) {
+      // estado neutro
+      if (cedulaHelp) { cedulaHelp.textContent = 'Ingrese 10 dígitos. Se validará automáticamente.'; cedulaHelp.className = 'text-xs mt-1 text-gray-500'; }
+      cedulaInput.classList.remove('border-red-500','focus:border-red-500','border-emerald-500');
+      setSubmitEnabled(false);
+      return;
+    }
+    const ok = validarCedulaEc(val);
+    applyCedulaFeedback(ok);
+    setSubmitEnabled(ok);
+  });
+
+  function setSubmitEnabled(enabled) {
+    const btn = document.getElementById('btn-submit');
+    if (!btn) return;
+    btn.disabled = !enabled;
+  }
+
   document.getElementById('form-inscripcion')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
@@ -200,5 +236,8 @@ import Navbar from "../components/Navbar.astro";
   document.addEventListener('DOMContentLoaded', () => {
     cargarDropdowns();
     actualizarTotales();
+    // estado inicial: botón deshabilitado hasta cédula válida
+    const btn = document.getElementById('btn-submit');
+    if (btn) btn.disabled = true;
   });
 </script>
