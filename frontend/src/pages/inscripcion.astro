@@ -58,6 +58,55 @@ import Navbar from "../components/Navbar.astro";
 
       <p id="msg" class="md:col-span-2 text-sm mt-2"></p>
     </form>
+
+    <!-- Modal de confirmación de pago -->
+    <div id="modal-confirm" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
+      <div class="bg-white w-[95%] max-w-lg rounded-lg shadow-xl border">
+        <div class="p-4 border-b">
+          <h3 class="text-xl font-semibold">Confirmar registro y pago</h3>
+          <p class="text-sm text-gray-600">Revise la información antes de continuar.</p>
+        </div>
+        <div class="p-4 space-y-3">
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <div>
+              <div class="text-gray-500">Nombre</div>
+              <div id="mc-nombre" class="font-medium"></div>
+            </div>
+            <div>
+              <div class="text-gray-500">Cédula</div>
+              <div id="mc-cedula" class="font-medium"></div>
+            </div>
+            <div>
+              <div class="text-gray-500">Correo</div>
+              <div id="mc-email" class="font-medium"></div>
+            </div>
+            <div>
+              <div class="text-gray-500">Carrera</div>
+              <div id="mc-carrera" class="font-medium"></div>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-1">
+            <div class="rounded p-2 bg-blue-50">
+              <div class="text-xs text-blue-700">Subtotal</div>
+              <div id="mc-subtotal" class="text-lg font-semibold text-blue-800">$0.00</div>
+            </div>
+            <div class="rounded p-2 bg-emerald-50">
+              <div class="text-xs text-emerald-700">Descuento</div>
+              <div id="mc-descuento" class="text-lg font-semibold text-emerald-800">$0.00</div>
+            </div>
+            <div class="rounded p-2 bg-indigo-50">
+              <div class="text-xs text-indigo-700">Total a pagar</div>
+              <div id="mc-total" class="text-lg font-semibold text-indigo-800">$0.00</div>
+            </div>
+          </div>
+          <p class="text-xs text-gray-500">Al continuar se enviará su registro con la información mostrada.</p>
+        </div>
+        <div class="p-4 border-t flex justify-end gap-2">
+          <button id="mc-cancel" type="button" class="btn-secondary">Cancelar</button>
+          <button id="mc-accept" type="button" class="btn-primary">Confirmar y registrar</button>
+        </div>
+      </div>
+    </div>
   </main>
 </Layout>
 
@@ -252,20 +301,54 @@ import Navbar from "../components/Navbar.astro";
       costo: String(total)
     };
 
+    // Preparar modal de confirmación
+    const selCarrera = document.getElementById('carrera_id');
+    const carreraTexto = selCarrera?.selectedOptions?.[0]?.textContent || '';
+    document.getElementById('mc-nombre').textContent = payload.nombre;
+    document.getElementById('mc-cedula').textContent = payload.cedula;
+    document.getElementById('mc-email').textContent = payload.email;
+    document.getElementById('mc-carrera').textContent = carreraTexto;
+    document.getElementById('mc-subtotal').textContent = `$${Number(subtotal).toFixed(2)}`;
+    document.getElementById('mc-descuento').textContent = `$${Number(descuento).toFixed(2)}`;
+    document.getElementById('mc-total').textContent = `$${Number(total).toFixed(2)}`;
+
+    window.__INSCRIPCION_PENDING__ = { form, payload };
+
+    const modal = document.getElementById('modal-confirm');
+    if (modal) {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+  });
+
+  // Botones del modal
+  document.getElementById('mc-cancel')?.addEventListener('click', () => {
+    const modal = document.getElementById('modal-confirm');
+    modal?.classList.add('hidden');
+    modal?.classList.remove('flex');
+  });
+
+  document.getElementById('mc-accept')?.addEventListener('click', async () => {
+    const pending = window.__INSCRIPCION_PENDING__ || {};
+    const { form, payload } = pending;
+    if (!payload) return;
     try {
       setSubmitting(true);
       showMessage('Enviando...', true);
-      console.debug('Enviando payload:', payload);
       await enviar(payload);
       showMessage('Inscripción registrada correctamente.', true);
-      form.reset();
+      form?.reset();
       try { localStorage.removeItem(CACHE_KEY); } catch (e) {}
-      await cargarDropdowns(); // recarga totales y selects
+      await cargarDropdowns();
+      const modal = document.getElementById('modal-confirm');
+      modal?.classList.add('hidden');
+      modal?.classList.remove('flex');
     } catch (err) {
       console.error(err);
       showMessage(err?.message || 'Ocurrió un error al registrar.', false);
     } finally {
       setSubmitting(false);
+      window.__INSCRIPCION_PENDING__ = null;
     }
   });
 
