@@ -1,13 +1,17 @@
 package org.acme.model;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 
 @Entity
 @Table(name = "inscripciones")
-public class Inscripcion extends PanacheEntity {
+public class Inscripcion extends PanacheEntityBase {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    public Long id;
 
     @NotBlank
     @Column(name = "nombre", nullable = false)

@@ -28,6 +28,11 @@ public class InscripcionesService {
             throw new RuntimeException("La carrera es requerida");
         }
 
+        // Validación de cédula requerida
+        if (ins.cedula == null || ins.cedula.isBlank()) {
+            throw new RuntimeException("La cédula es requerida");
+        }
+
         // Re-obtener entidades gestionadas dentro de esta transacción
         Colegio managedColegio = Colegio.findById(ins.colegio.id);
         if (managedColegio == null) {
