@@ -4,18 +4,10 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
-import jakarta.ws.rs.core.Response;
-import org.acme.dto.CreateInscripcionDTO;
 import org.acme.model.Carrera;
 import org.acme.model.Colegio;
 import org.acme.model.Inscripcion;
-import org.acme.model.User;
 import org.acme.repository.InscripcionesRepository;
-import jakarta.ws.rs.*;
-
-import java.util.HashMap;
-import java.util.Map;
-
 
 @ApplicationScoped
 public class InscripcionesService {
@@ -24,37 +16,42 @@ public class InscripcionesService {
     InscripcionesRepository inscripcionesRepository;
     
     /**
-     * Crea un nuevo usuario
+     * Crea una nueva inscripción
      */
     @Transactional
     public Inscripcion createInscripcion(@Valid Inscripcion ins) {
-        // Ya debe venir con colegio y carrera asignados como entidades en el controlador
-        if (ins.colegio == null) {
+        // Validación básica
+        if (ins.colegio == null || ins.colegio.id == null) {
             throw new RuntimeException("El colegio es requerido");
         }
-        if (ins.carrera == null) {
+        if (ins.carrera == null || ins.carrera.id == null) {
             throw new RuntimeException("La carrera es requerida");
         }
 
-        // Persistimos la inscripción primero
+        // Re-obtener entidades gestionadas dentro de esta transacción
+        Colegio managedColegio = Colegio.findById(ins.colegio.id);
+        if (managedColegio == null) {
+            throw new RuntimeException("El colegio especificado no existe");
+        }
+        Carrera managedCarrera = Carrera.findById(ins.carrera.id);
+        if (managedCarrera == null) {
+            throw new RuntimeException("La carrera especificada no existe");
+        }
+
+        // Asignar las referencias gestionadas a la inscripción
+        ins.colegio = managedColegio;
+        ins.carrera = managedCarrera;
+
+        // Persistir la inscripción
         inscripcionesRepository.persist(ins);
 
-        // Luego incrementamos el número de estudiantes de la carrera asociada
-        Carrera carrera = ins.carrera;
-        if (carrera != null) {
-            // Asegurar no nulo y valor inicial 0 si fuera necesario
-            if (carrera.numeroEstudiante == null) {
-                carrera.numeroEstudiante = 0;
-            }
-            carrera.numeroEstudiante = carrera.numeroEstudiante + 1;
-            // Como es una entidad administrada (viene de findById en el controller),
-            // Hibernate detectará el cambio y hará update al hacer flush/commit.
-            // Si por alguna razón no estuviera administrada, podemos forzar persist.
-            Carrera.persist(carrera);
+        // Incrementar el contador en la entidad gestionada (no llamar persist sobre ella)
+        if (managedCarrera.numeroEstudiante == null) {
+            managedCarrera.numeroEstudiante = 0;
         }
+        managedCarrera.numeroEstudiante = managedCarrera.numeroEstudiante + 1;
+        // No se llama a persist/merge en managedCarrera; el cambio se sincroniza al commit
 
         return ins;
     }
-
-
 }

@@ -63,6 +63,7 @@ import Navbar from "../components/Navbar.astro";
 
 <script>
   const BASE_VALUE = 100;
+  const CACHE_KEY = 'inscripcion_cache_v1';
 
   function showMessage(text, ok = true) {
     const el = document.getElementById('msg');
@@ -97,6 +98,7 @@ import Navbar from "../components/Navbar.astro";
   }
 
   async function enviar(payload) {
+    // Limpia el cache sólo cuando el backend confirma el guardado
     const res = await fetch('http://localhost:8080/inscripciones', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -150,7 +152,7 @@ import Navbar from "../components/Navbar.astro";
     if (btn) { btn.disabled = !!submitting; btn.textContent = submitting ? 'Enviando...' : 'Registrar'; }
   }
 
-  document.getElementById('colegio_id')?.addEventListener('change', actualizarTotales);
+  document.getElementById('colegio_id')?.addEventListener('change', () => { actualizarTotales(); saveCacheFromForm(); });
 
   // Validación en tiempo real de cédula
   const cedulaInput = document.getElementById('cedula');
@@ -166,6 +168,7 @@ import Navbar from "../components/Navbar.astro";
     }
   }
   cedulaInput?.addEventListener('input', (e) => {
+    saveCacheFromForm();
     // permitir solo números y máximo 10
     const val = e.target.value.replace(/\D/g, '').slice(0, 10);
     if (val !== e.target.value) e.target.value = val;
@@ -185,6 +188,37 @@ import Navbar from "../components/Navbar.astro";
     const btn = document.getElementById('btn-submit');
     if (!btn) return;
     btn.disabled = !enabled;
+  }
+
+  function saveCacheFromForm() {
+    try {
+      const form = document.getElementById('form-inscripcion');
+      if (!form) return;
+      const data = Object.fromEntries(new FormData(form).entries());
+      const { subtotal, descuento, total } = actualizarTotales();
+      const cache = {
+        version: 1,
+        data,
+        totales: { subtotal, descuento, total },
+        ts: Date.now()
+      };
+      localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+    } catch (e) {
+      // noop
+    }
+  }
+
+  function loadCacheIntoForm() {
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (!raw) return;
+      const cache = JSON.parse(raw);
+      const data = cache?.data || {};
+      for (const [k, v] of Object.entries(data)) {
+        const el = document.querySelector(`[name="${k}"]`);
+        if (el) el.value = v;
+      }
+    } catch (e) {}
   }
 
   document.getElementById('form-inscripcion')?.addEventListener('submit', async (e) => {
@@ -213,17 +247,19 @@ import Navbar from "../components/Navbar.astro";
       email: String(data.email || '').trim(),
       colegio_id: String(data.colegio_id || '').trim(),
       carrera_id: String(data.carrera_id || '').trim(),
-      subtotal,
-      descuento,
-      costo: total
+      subtotal: String(subtotal),
+      descuento: String(descuento),
+      costo: String(total)
     };
 
     try {
       setSubmitting(true);
       showMessage('Enviando...', true);
+      console.debug('Enviando payload:', payload);
       await enviar(payload);
       showMessage('Inscripción registrada correctamente.', true);
       form.reset();
+      try { localStorage.removeItem(CACHE_KEY); } catch (e) {}
       await cargarDropdowns(); // recarga totales y selects
     } catch (err) {
       console.error(err);
@@ -233,7 +269,16 @@ import Navbar from "../components/Navbar.astro";
     }
   });
 
+  // Guardar en cache al cambiar cualquier campo
+  ['nombre','cedula','email','colegio_id','carrera_id'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', saveCacheFromForm);
+    document.getElementById(id)?.addEventListener('blur', saveCacheFromForm);
+    document.getElementById(id)?.addEventListener('input', saveCacheFromForm);
+  });
+
   document.addEventListener('DOMContentLoaded', () => {
+    // Intentar cargar desde cache antes de poblar selects
+    loadCacheIntoForm();
     cargarDropdowns();
     actualizarTotales();
     // estado inicial: botón deshabilitado hasta cédula válida
