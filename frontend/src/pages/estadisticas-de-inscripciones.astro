@@ -43,6 +43,21 @@ import Navbar from "../components/Navbar.astro";
         </table>
       </div>
     </section>
+
+    <!-- Gráficos -->
+    <section id="charts" class="mt-10 hidden">
+      <h2 class="text-2xl font-semibold mb-4">Visualizaciones</h2>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white border rounded-lg p-4 shadow-sm">
+          <h3 class="font-medium mb-2">Porcentaje de inscripciones por carrera</h3>
+          <canvas id="donutChart" height="240"></canvas>
+        </div>
+        <div class="bg-white border rounded-lg p-4 shadow-sm">
+          <h3 class="font-medium mb-2">Total de inscripciones por carrera</h3>
+          <canvas id="barChart" height="240"></canvas>
+        </div>
+      </div>
+    </section>
   </main>
 </Layout>
 
@@ -60,6 +75,22 @@ import Navbar from "../components/Navbar.astro";
   const logoutBtn = document.getElementById('logout');
 
   const BASE_VALUE = 100;
+
+  // Cargar Chart.js desde CDN cuando sea necesario
+  function ensureChartJs() {
+    return new Promise((resolve, reject) => {
+      if (window.Chart) return resolve(window.Chart);
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js';
+      s.async = true;
+      s.onload = () => resolve(window.Chart);
+      s.onerror = () => reject(new Error('No se pudo cargar Chart.js'));
+      document.head.appendChild(s);
+    });
+  }
+
+  let donutInstance = null;
+  let barInstance = null;
 
   function getTipoColegioFromText(colegioText) {
     const t = String(colegioText || '').toLowerCase();
@@ -98,6 +129,12 @@ import Navbar from "../components/Navbar.astro";
     }
   }
 
+  function buildDataForCharts(registros) {
+    const resumen = buildResumenPorCarrera(registros);
+    const carreras = Object.keys(resumen).sort((a,b) => resumen[b]-resumen[a]);
+    return { carreras, counts: carreras.map(c => resumen[c]) };
+  }
+
   async function renderResumen() {
     const registros = await fetchInscripciones();
     const resumen = buildResumenPorCarrera(registros);
@@ -118,6 +155,75 @@ import Navbar from "../components/Navbar.astro";
       card.addEventListener('click', () => mostrarDetalle(carrera));
       vistaResumen.appendChild(card);
     }
+
+    // Renderizar gráficos debajo del resumen
+    const { carreras: labels, counts } = buildDataForCharts(registros);
+    if (labels.length) {
+      try {
+        await ensureChartJs();
+        renderCharts(labels, counts);
+      } catch (e) {
+        console.warn('No se mostrarán gráficos:', e?.message || e);
+        document.getElementById('charts')?.classList.add('hidden');
+      }
+    } else {
+      document.getElementById('charts')?.classList.add('hidden');
+    }
+  }
+
+  function renderCharts(labels, counts) {
+    const chartSection = document.getElementById('charts');
+    if (!labels?.length || !counts?.length) {
+      chartSection?.classList.add('hidden');
+      return;
+    }
+    chartSection?.classList.remove('hidden');
+
+    const colors = labels.map((_, i) => {
+      const base = [
+        '#3b82f6','#22c55e','#f59e0b','#ef4444','#8b5cf6',
+        '#06b6d4','#d946ef','#84cc16','#f97316','#0ea5e9'
+      ];
+      return base[i % base.length];
+    });
+
+    const donutCtx = document.getElementById('donutChart').getContext('2d');
+    const barCtx = document.getElementById('barChart').getContext('2d');
+
+    if (donutInstance) donutInstance.destroy();
+    if (barInstance) barInstance.destroy();
+
+    donutInstance = new Chart(donutCtx, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data: counts, backgroundColor: colors, borderWidth: 1 }] },
+      options: {
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const total = counts.reduce((a,b) => a+b, 0) || 1;
+                const val = ctx.parsed;
+                const pct = (val * 100) / total;
+                return `${ctx.label}: ${val} (${pct.toFixed(1)}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+
+    barInstance = new Chart(barCtx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{ label: 'Inscritos', data: counts, backgroundColor: colors.map(c => c + 'cc'), borderColor: colors, borderWidth: 1 }]
+      },
+      options: {
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 }, precision: 0 } }
+      }
+    });
   }
 
   async function mostrarDetalle(carreraSeleccionada) {
@@ -137,6 +243,9 @@ import Navbar from "../components/Navbar.astro";
       `;
       tbodyDetalle.appendChild(tr);
     }
+
+    // Ocultar gráficos al ver detalle
+    document.getElementById('charts')?.classList.add('hidden');
 
     vistaResumen.classList.add('hidden');
     vistaDetalle.classList.remove('hidden');
@@ -160,11 +269,24 @@ import Navbar from "../components/Navbar.astro";
     }
   });
 
-  btnVolver?.addEventListener('click', () => {
+  btnVolver?.addEventListener('click', async () => {
     filtroCarrera.value = '';
     vistaDetalle.classList.add('hidden');
     btnVolver.classList.add('hidden');
     vistaResumen.classList.remove('hidden');
+    // Volver a cargar gráficos
+    try {
+      const registros = await fetchInscripciones();
+      const { carreras: labels, counts } = buildDataForCharts(registros);
+      if (labels.length) {
+        await ensureChartJs();
+        renderCharts(labels, counts);
+      } else {
+        document.getElementById('charts')?.classList.add('hidden');
+      }
+    } catch (e) {
+      document.getElementById('charts')?.classList.add('hidden');
+    }
   });
 
   logoutBtn?.addEventListener('click', () => {

@@ -35,7 +35,24 @@ public class InscripcionesService {
         if (ins.carrera == null) {
             throw new RuntimeException("La carrera es requerida");
         }
+
+        // Persistimos la inscripción primero
         inscripcionesRepository.persist(ins);
+
+        // Luego incrementamos el número de estudiantes de la carrera asociada
+        Carrera carrera = ins.carrera;
+        if (carrera != null) {
+            // Asegurar no nulo y valor inicial 0 si fuera necesario
+            if (carrera.numeroEstudiante == null) {
+                carrera.numeroEstudiante = 0;
+            }
+            carrera.numeroEstudiante = carrera.numeroEstudiante + 1;
+            // Como es una entidad administrada (viene de findById en el controller),
+            // Hibernate detectará el cambio y hará update al hacer flush/commit.
+            // Si por alguna razón no estuviera administrada, podemos forzar persist.
+            Carrera.persist(carrera);
+        }
+
         return ins;
     }
 
