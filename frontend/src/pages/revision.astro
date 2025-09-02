@@ -1,0 +1,51 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Navbar from "../components/Navbar.astro";
+---
+
+<Layout title="UCACUE - Revisión" description="Acceso para revisar inscripciones.">
+  <Navbar title="UCACUE" links={[{ name: "Inscripción", href: "/inscripcion" }, { name: "Revisión", href: "/revision" }]} />
+  <main class="container-custom py-10">
+    <h1 class="text-3xl font-bold mb-6">Ingreso a Revisión</h1>
+    <div class="max-w-sm bg-white border rounded-lg p-5 shadow-sm">
+      <form id="login-form" class="space-y-4">
+        <div>
+          <label for="username" class="label">Usuario</label>
+          <input id="username" name="username" class="input" placeholder="admin" required />
+        </div>
+        <div>
+          <label for="password" class="label">Contraseña</label>
+          <input id="password" name="password" type="password" class="input" placeholder="(vacío)" />
+          <p class="text-xs text-gray-500 mt-1">Ingrese con usuario <strong>admin</strong> y sin contraseña.</p>
+        </div>
+        <button type="submit" class="btn-primary w-full">Ingresar</button>
+        <p id="login-error" class="text-sm text-red-600 hidden">Credenciales inválidas. Use usuario admin y deje la contraseña vacía.</p>
+      </form>
+    </div>
+  </main>
+</Layout>
+
+<script>
+  const AUTH_KEY = 'is_admin';
+  const form = document.getElementById('login-form');
+  const err = document.getElementById('login-error');
+
+  function isAuthed() { try { return localStorage.getItem(AUTH_KEY) === 'true'; } catch (e) { return false; } }
+  function goToEstad() { window.location.href = '/estadisticas-de-inscripciones'; }
+
+  // Si ya está autenticado, redirigir a /estad
+  if (isAuthed()) { goToEstad(); }
+
+  form?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(form).entries());
+    const user = String(data.username || '').trim();
+    const pass = String(data.password || '');
+    if (user === 'admin' && pass === '') {
+      try { localStorage.setItem(AUTH_KEY, 'true'); } catch (e) {}
+      goToEstad();
+    } else {
+      err?.classList.remove('hidden');
+    }
+  });
+</script>

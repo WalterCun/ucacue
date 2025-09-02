@@ -1,0 +1,404 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Navbar from "../components/Navbar.astro";
+---
+
+<Layout title="UCACUE - Inscripción" description="Formulario de inscripción a la Universidad Católica.">
+  <Navbar title="UCACUE" links={[{ name: "Inscripción", href: "/inscripcion" }, { name: "Revisión", href: "/revision" }]} />
+  <main class="container-custom py-10">
+    <h1 class="text-3xl font-bold mb-6">Formulario de Inscripción</h1>
+    <form id="form-inscripcion" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="md:col-span-2">
+        <label class="label" for="nombres_completos">Nombres completos</label>
+        <input id="nombres_completos" name="nombres_completos" class="input" required />
+      </div>
+      <div>
+        <label class="label" for="cedula">Cédula</label>
+        <input id="cedula" name="cedula" class="input" pattern="^[0-9]{10}$" required />
+        <p id="cedula-help" class="text-xs text-gray-500 mt-1">Ingrese 10 dígitos. Se validará contra el algoritmo del Registro Civil.</p>
+        <p id="cedula-error" class="text-sm text-red-600 mt-1 hidden">Cédula no válida. Verifique el número.</p>
+      </div>
+      <div>
+        <label class="label" for="correo">Correo electrónico</label>
+        <input id="correo" type="email" name="correo" class="input" required />
+        <p id="correo-error" class="text-sm text-red-600 mt-1 hidden">Correo electrónico no válido.</p>
+      </div>
+      <div class="md:col-span-2">
+        <label class="label" for="colegio">Colegio de procedencia</label>
+        <select id="colegio" name="colegio" class="input" required>
+          <option value="">Cargando colegios...</option>
+        </select>
+        <p id="colegio-error" class="text-sm text-red-600 mt-1 hidden">No se pudo cargar la lista de colegios. <button id="retry-colegios" type="button" class="underline">Reintentar</button></p>
+      </div>
+      <div class="md:col-span-2">
+        <label class="label" for="carrera">Carrera</label>
+        <select id="carrera" name="carrera" class="input" required>
+          <option value="">Cargando carreras...</option>
+        </select>
+        <p id="carrera-error" class="text-sm text-red-600 mt-1 hidden">No se pudo cargar la lista de carreras. <button id="retry-carreras" type="button" class="underline">Reintentar</button></p>
+      </div>
+      <div class="md:col-span-2">
+        <div class="border rounded-lg p-4 bg-secondary-50">
+          <h2 class="text-xl font-semibold mb-3">Formulario de valores</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+            <div class="p-3 bg-white rounded border">
+              <div class="text-gray-600">Valor base</div>
+              <div class="text-2xl font-bold" id="valor-base">$100.00</div>
+            </div>
+            <div class="p-3 bg-white rounded border">
+              <div class="text-gray-600">Descuento</div>
+              <div class="text-2xl font-bold text-green-700" id="valor-descuento">$0.00</div>
+              <div class="text-xs text-gray-500">3% aplicado si el colegio es Fiscal o Fiscomisional</div>
+            </div>
+            <div class="p-3 bg-white rounded border">
+              <div class="text-gray-600">Total a pagar</div>
+              <div class="text-2xl font-bold" id="valor-total">$100.00</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="md:col-span-2 flex gap-3 mt-4">
+        <button id="submit-btn" class="btn-primary" type="submit">Registrar</button>
+        <a href="/revision" class="btn-secondary">Ir a revisión</a>
+        <button id="clear-cache" type="button" class="btn-danger">Borrar borrador</button>
+      </div>
+    </form>
+
+    <!-- Modal de confirmación -->
+    <div id="confirm-modal" class="fixed inset-0 z-50 hidden">
+      <div class="absolute inset-0 bg-black/50"></div>
+      <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
+          <div class="border-b px-5 py-3">
+            <h3 class="text-lg font-semibold">Confirmar registro</h3>
+          </div>
+          <div class="px-5 py-4 space-y-3 text-sm">
+            <p>Revise el resumen de valores antes de confirmar:</p>
+            <div class="grid grid-cols-3 gap-3">
+              <div class="p-3 bg-secondary-50 rounded border">
+                <div class="text-gray-600">Valor base</div>
+                <div id="m-valor-base" class="text-xl font-bold">$100.00</div>
+              </div>
+              <div class="p-3 bg-secondary-50 rounded border">
+                <div class="text-gray-600">Descuento</div>
+                <div id="m-valor-descuento" class="text-xl font-bold text-green-700">$0.00</div>
+              </div>
+              <div class="p-3 bg-secondary-50 rounded border">
+                <div class="text-gray-600">Total a pagar</div>
+                <div id="m-valor-total" class="text-xl font-bold">$100.00</div>
+              </div>
+            </div>
+            <div class="mt-2 text-xs text-gray-600" id="m-resumen"></div>
+            <p id="m-error" class="text-sm text-red-600 hidden"></p>
+          </div>
+          <div class="border-t px-5 py-3 flex gap-2 justify-end">
+            <button id="m-cancel" type="button" class="btn-secondary">Cancelar</button>
+            <button id="m-accept" type="button" class="btn-primary">Aceptar y registrar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</Layout>
+
+<script>
+  const form = document.getElementById('form-inscripcion');
+  const colegioSelect = document.getElementById('colegio');
+  const carreraSelect = document.getElementById('carrera');
+  const colegioError = document.getElementById('colegio-error');
+  const carreraError = document.getElementById('carrera-error');
+  const retryColegios = document.getElementById('retry-colegios');
+  const retryCarreras = document.getElementById('retry-carreras');
+  const submitBtn = document.getElementById('submit-btn');
+  const clearCacheBtn = document.getElementById('clear-cache');
+  const cedulaInput = document.getElementById('cedula');
+  const correoInput = document.getElementById('correo');
+  const cedulaError = document.getElementById('cedula-error');
+  const correoError = document.getElementById('correo-error');
+
+  const CACHE_KEY = 'inscripcion_cache';
+  const BASE_VALUE = 100;
+
+  // Modal elements
+  const modal = document.getElementById('confirm-modal');
+  const mValorBase = document.getElementById('m-valor-base');
+  const mValorDesc = document.getElementById('m-valor-descuento');
+  const mValorTotal = document.getElementById('m-valor-total');
+  const mResumen = document.getElementById('m-resumen');
+  const mError = document.getElementById('m-error');
+  const mCancel = document.getElementById('m-cancel');
+  const mAccept = document.getElementById('m-accept');
+
+  function calcDiscountForColegioOption(optionEl) {
+    if (!optionEl) return 0;
+    const tipo = optionEl.dataset.tipo || '';
+    const label = optionEl.textContent || '';
+    const text = (tipo + ' ' + label).toLowerCase();
+    if (text.includes('fiscal') || text.includes('fiscomisional') || text.includes('fiscomisional')) {
+      return BASE_VALUE * 0.03;
+    }
+    return 0;
+  }
+
+  function updateTotals() {
+    const selectedOption = colegioSelect?.selectedOptions?.[0];
+    const discount = calcDiscountForColegioOption(selectedOption);
+    const total = BASE_VALUE - discount;
+    document.getElementById('valor-base').textContent = `$${BASE_VALUE.toFixed(2)}`;
+    document.getElementById('valor-descuento').textContent = `-$${discount.toFixed(2)}`;
+    document.getElementById('valor-total').textContent = `$${total.toFixed(2)}`;
+  }
+
+  function saveCache() {
+    if (!form) return;
+    const data = Object.fromEntries(new FormData(form).entries());
+    // Persist also totals context for user info
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+    } catch (e) { /* storage may be full or blocked */ }
+  }
+
+  function restoreCache() {
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (!raw) return {};
+      const data = JSON.parse(raw);
+      for (const [k, v] of Object.entries(data)) {
+        const el = form.querySelector(`[name="${k}"]`);
+        if (el) {
+          el.value = v;
+        }
+      }
+      return data;
+    } catch (e) { return {}; }
+  }
+
+  function clearCache() {
+    try { localStorage.removeItem(CACHE_KEY); } catch (e) {}
+  }
+
+  async function loadOptions(url, selectEl, errorEl) {
+    try {
+      errorEl?.classList.add('hidden');
+      selectEl.innerHTML = '<option value="">Cargando...</option>';
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      // data can be array of objects or strings. Try common shapes
+      const items = Array.isArray(data) ? data : [];
+      selectEl.innerHTML = '<option value="">Seleccione una opción</option>';
+      for (const item of items) {
+        let value = '';
+        let label = '';
+        let tipo = '';
+        let ciudad = '';
+        if (typeof item === 'string') {
+          value = item;
+          label = item;
+        } else if (item) {
+          value = item.id ?? item.codigo ?? item.code ?? item.nombre ?? item.name ?? '';
+          const nombreBase = item.nombre ?? item.name ?? item.descripcion ?? String(value);
+          ciudad = item.ciudad ?? item.city ?? item.canton ?? '';
+          label = ciudad ? `${nombreBase} - ${ciudad}` : nombreBase;
+          tipo = item.tipo ?? item.categoria ?? item.clasificacion ?? '';
+        }
+        if (!value && label) value = label;
+        if (label) {
+          const opt = document.createElement('option');
+          opt.value = String(value);
+          opt.textContent = String(label);
+          if (tipo) opt.dataset.tipo = String(tipo);
+          selectEl.appendChild(opt);
+        }
+      }
+    } catch (err) {
+      console.error('Error cargando', url, err);
+      if (errorEl) errorEl.classList.remove('hidden');
+      selectEl.innerHTML = '<option value="">No disponible</option>';
+    }
+  }
+
+  function isValidEcuadorCedula(cedula) {
+    if (!/^[0-9]{10}$/.test(cedula)) return false;
+    const prov = parseInt(cedula.slice(0,2), 10);
+    if (!((prov >= 1 && prov <= 24) || prov === 30)) return false;
+    const third = parseInt(cedula[2], 10);
+    if (third >= 6) return false; // naturales: third digit 0-5
+    const digits = cedula.split('').map(n => parseInt(n,10));
+    const coef = [2,1,2,1,2,1,2,1,2];
+    let sum = 0;
+    for (let i = 0; i < 9; i++) {
+      let p = digits[i] * coef[i];
+      if (p >= 10) p -= 9;
+      sum += p;
+    }
+    const mod = sum % 10;
+    const check = mod === 0 ? 0 : 10 - mod;
+    return check === digits[9];
+  }
+
+  function validateCedulaInline() {
+    const val = (cedulaInput?.value || '').trim();
+    if (!val) { cedulaError?.classList.add('hidden'); return true; }
+    const ok = isValidEcuadorCedula(val);
+    if (ok) {
+      cedulaError?.classList.add('hidden');
+    } else {
+      cedulaError?.classList.remove('hidden');
+    }
+    return ok;
+  }
+
+  function validateCorreoInline() {
+    const val = (correoInput?.value || '').trim();
+    if (!val) { correoError?.classList.add('hidden'); return true; }
+    const emailRe = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
+    const ok = emailRe.test(val);
+    if (ok) {
+      correoError?.classList.add('hidden');
+    } else {
+      correoError?.classList.remove('hidden');
+    }
+    return ok;
+  }
+
+  function init() {
+    const cached = restoreCache();
+    Promise.all([
+      loadOptions('http://localhost:8080/colegios', colegioSelect, colegioError),
+      loadOptions('http://localhost:8080/carreras', carreraSelect, carreraError)
+    ]).finally(() => {
+      // Re-seleccionar valores de cache si existen
+      if (cached && cached.colegio && colegioSelect) colegioSelect.value = cached.colegio;
+      if (cached && cached.carrera && carreraSelect) carreraSelect.value = cached.carrera;
+      updateTotals();
+    });
+
+    // Restaurar inputs de texto
+    for (const el of form.querySelectorAll('input, select')) {
+      const name = el.getAttribute('name');
+      if (name && cached && cached[name] != null && el.tagName !== 'SELECT') {
+        el.value = cached[name];
+      }
+    }
+
+    // Listeners para autosave, totales y validaciones inline
+    form.addEventListener('input', () => {
+      saveCache();
+      updateTotals();
+      validateCedulaInline();
+      validateCorreoInline();
+    });
+    form.addEventListener('change', () => {
+      saveCache();
+      updateTotals();
+      validateCedulaInline();
+      validateCorreoInline();
+    });
+
+    cedulaInput?.addEventListener('blur', validateCedulaInline);
+    correoInput?.addEventListener('blur', () => { correoInput.value = (correoInput.value || '').trim(); validateCorreoInline(); });
+
+    colegioSelect?.addEventListener('change', updateTotals);
+    updateTotals();
+  }
+
+  retryColegios?.addEventListener('click', () => loadOptions('http://localhost:8080/colegios', colegioSelect, colegioError).then(updateTotals));
+  retryCarreras?.addEventListener('click', () => loadOptions('http://localhost:8080/carreras', carreraSelect, carreraError));
+
+  document.addEventListener('DOMContentLoaded', init);
+
+  clearCacheBtn?.addEventListener('click', () => { clearCache(); alert('Borrador eliminado'); });
+
+  form?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(form).entries());
+
+    // Validaciones obligatorias adicionales
+    if (!data.nombres_completos || String(data.nombres_completos).trim().length < 5) {
+      alert('Ingrese sus nombres completos.');
+      return;
+    }
+    const cedulaVal = String(data.cedula || '').trim();
+    if (!isValidEcuadorCedula(cedulaVal)) {
+      cedulaError?.classList.remove('hidden');
+      alert('La cédula ingresada no es válida.');
+      return;
+    }
+    // type=email ya valida, pero reforzamos
+    const emailVal = String(data.correo || '').trim();
+    const emailRe = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
+    if (!emailRe.test(emailVal)) {
+      correoError?.classList.remove('hidden');
+      alert('Ingrese un correo electrónico válido.');
+      return;
+    }
+    if (!data.colegio) {
+      alert('Seleccione el colegio de procedencia.');
+      return;
+    }
+    if (!data.carrera) {
+      alert('Seleccione la carrera.');
+      return;
+    }
+
+    // Preparar y mostrar modal de confirmación con los valores
+    const selectedOption = colegioSelect?.selectedOptions?.[0];
+    const discount = calcDiscountForColegioOption(selectedOption);
+    const total = BASE_VALUE - discount;
+    if (mValorBase) mValorBase.textContent = `$${BASE_VALUE.toFixed(2)}`;
+    if (mValorDesc) mValorDesc.textContent = `-$${discount.toFixed(2)}`;
+    if (mValorTotal) mValorTotal.textContent = `$${total.toFixed(2)}`;
+    if (mResumen) {
+      const colegioTxt = colegioSelect?.selectedOptions?.[0]?.textContent || String(data.colegio);
+      const carreraTxt = carreraSelect?.selectedOptions?.[0]?.textContent || String(data.carrera);
+      mResumen.textContent = `Aspirante: ${data.nombres_completos} • Cédula: ${cedulaVal} • Correo: ${emailVal} • Colegio: ${colegioTxt} • Carrera: ${carreraTxt}`;
+    }
+    if (mError) { mError.textContent = ''; mError.classList.add('hidden'); }
+    modal?.classList.remove('hidden');
+
+    // Guardar temporalmente los datos y totales en variables del módulo para usarlos al aceptar
+    window.__INSCRIPCION_PENDING__ = { data, payload: { ...data, valor_base: BASE_VALUE, descuento: Number(discount.toFixed(2)), total: Number((total).toFixed(2)) } };
+  });
+
+  // Botones del modal
+  mCancel?.addEventListener('click', () => {
+    modal?.classList.add('hidden');
+  });
+
+  mAccept?.addEventListener('click', async () => {
+    const pending = window.__INSCRIPCION_PENDING__ || {};
+    const payload = pending.payload || {};
+    // Estado de carga
+    mAccept.disabled = true; mAccept.textContent = 'Registrando...';
+    mCancel.disabled = true;
+    try {
+      const res = await fetch('http://localhost:8080/inscripciones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(`Error ${res.status}: ${txt || res.statusText}`);
+      }
+      // Mantener compatibilidad con Revisión (usa localStorage)
+      const registros = JSON.parse(localStorage.getItem('inscripciones') || '[]');
+      payload.id = Date.now();
+      registros.push(payload);
+      localStorage.setItem('inscripciones', JSON.stringify(registros));
+      try { localStorage.removeItem(CACHE_KEY); } catch (e) {}
+      modal?.classList.add('hidden');
+      alert('Inscripción registrada');
+      form.reset();
+      updateTotals();
+    } catch (err) {
+      console.error(err);
+      if (mError) { mError.textContent = 'No se pudo registrar la inscripción. Intente nuevamente.'; mError.classList.remove('hidden'); }
+    } finally {
+      mAccept.disabled = false; mAccept.textContent = 'Aceptar y registrar';
+      mCancel.disabled = false;
+    }
+  });
+</script>

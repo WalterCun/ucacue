@@ -1,0 +1,12 @@
+target/
+!target/quarkus-app/
+!target/quarkus-app/lib/
+!target/quarkus-app/quarkus-run.jar
+!target/quarkus-app/app/
+!target/quarkus-app/quarkus-application.dat
+src/test/
+.git
+.gitignore
+README.md
+*.log
+.DS_Store

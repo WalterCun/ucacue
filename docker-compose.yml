@@ -1,0 +1,46 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/src/main/docker/Dockerfile.jvm
+    image: ucacue-backend:latest
+    container_name: ucacue-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - QUARKUS_HTTP_PORT=8080
+    depends_on: []
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: ucacue-frontend:latest
+    container_name: ucacue-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - PUBLIC_API_URL=http://localhost:8080
+    depends_on:
+      - backend
+
+# Usage:
+# docker-compose down
+
+# [use it]
+# docker-compose down --volumes --rmi all <-- use
+# docker-compose build --no-cache
+
+#[ejecutar]
+# docker-compose up -d
+
+# [compilar y ejecutar sin cache]
+# docker-compose up -d --build --force-recreate <-- use
+# Nota: El backend ahora se compila dentro del Dockerfile (multi-stage), no necesitas mvn package local.
+
+
+
+
+# docker compose build
+# docker compose up -d
+# Visit http://localhost:3000 for frontend and http://localhost:8080 for backend

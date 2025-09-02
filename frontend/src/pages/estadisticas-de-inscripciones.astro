@@ -1,0 +1,162 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Navbar from "../components/Navbar.astro";
+---
+
+<Layout title="UCACUE - Estado de Inscripciones" description="Página protegida para revisar inscripciones.">
+  <Navbar title="UCACUE" links={[{ name: "Inscripción", href: "/inscripcion" }, { name: "Revisión", href: "/revision" }]} />
+  <main class="container-custom py-10">
+    <h1 class="text-3xl font-bold mb-6">Estadísticas de Inscripciones</h1>
+
+    <!-- Filtro superior -->
+    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
+      <div>
+        <label class="label" for="filtro-carrera">Filtrar por carrera</label>
+        <select id="filtro-carrera" class="input w-72 max-w-full">
+          <option value="">Todas</option>
+        </select>
+      </div>
+      <div class="flex gap-2">
+        <button id="btn-volver" type="button" class="btn-secondary hidden">Volver</button>
+        <a href="/inscripcion" class="btn-secondary">Nueva inscripción</a>
+        <button id="logout" class="btn-secondary" type="button">Cerrar sesión</button>
+      </div>
+    </div>
+
+    <!-- Vista 1: Tarjetas con conteo por carrera -->
+    <section id="vista-resumen" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></section>
+
+    <!-- Vista 2: Tabla de detalle por carrera -->
+    <section id="vista-detalle" class="hidden">
+      <div class="overflow-auto">
+        <table class="min-w-full border border-gray-200 rounded-lg overflow-hidden">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="text-left p-2">Nombres completos</th>
+              <th class="text-left p-2">Cédula</th>
+              <th class="text-left p-2">Correo electrónico</th>
+              <th class="text-left p-2">Tipo de colegio</th>
+              <th class="text-left p-2">Costo matrícula</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-detalle"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</Layout>
+
+<script>
+  const AUTH_KEY = 'is_admin';
+  function isAuthed() { try { return localStorage.getItem(AUTH_KEY) === 'true'; } catch (e) { return false; } }
+  function requireAuth() { if (!isAuthed()) { window.location.href = '/revision'; } }
+  requireAuth();
+
+    const filtroCarrera = document.getElementById('filtro-carrera');
+  const vistaResumen = document.getElementById('vista-resumen');
+  const vistaDetalle = document.getElementById('vista-detalle');
+  const tbodyDetalle = document.getElementById('tbody-detalle');
+  const btnVolver = document.getElementById('btn-volver');
+  const logoutBtn = document.getElementById('logout');
+
+  const BASE_VALUE = 100;
+
+  function getTipoColegioFromText(colegioText) {
+    const t = String(colegioText || '').toLowerCase();
+    if (t.includes('fiscal') || t.includes('fiscomisional') || t.includes('fiscomisional')) return 'Fiscal/Fiscomisional';
+    return 'Particular';
+  }
+  function calcularCostoPorColegio(colegioText) {
+    const tipo = getTipoColegioFromText(colegioText);
+    const descuento = tipo === 'Particular' ? 0 : BASE_VALUE * 0.03;
+    return Number((BASE_VALUE - descuento).toFixed(2));
+  }
+
+  function cargarCarrerasEnFiltro(carreras) {
+    filtroCarrera.innerHTML = '<option value="">Todas</option>' + carreras.map(c => `<option value="${c}">${c}</option>`).join('');
+  }
+
+  function buildResumenPorCarrera(registros) {
+    const grupos = {};
+    for (const r of registros) {
+      const c = r.carrera || 'Sin carrera';
+      grupos[c] = (grupos[c] || 0) + 1;
+    }
+    return grupos;
+  }
+
+  function renderResumen() {
+    const registros = JSON.parse(localStorage.getItem('inscripciones') || '[]');
+    const resumen = buildResumenPorCarrera(registros);
+    const carreras = Object.keys(resumen).sort();
+    cargarCarrerasEnFiltro(carreras);
+
+    vistaDetalle.classList.add('hidden');
+    btnVolver.classList.add('hidden');
+    vistaResumen.innerHTML = '';
+
+    for (const carrera of carreras) {
+      const count = resumen[carrera];
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'text-left p-4 bg-white border rounded-lg shadow-sm hover:shadow-md transition flex items-center justify-between';
+      card.innerHTML = `<div><div class="text-sm text-gray-500">Carrera</div><div class="text-lg font-semibold">${carrera}</div></div><div class="text-3xl font-bold text-primary-600">${count}</div>`;
+      card.addEventListener('click', () => mostrarDetalle(carrera));
+      vistaResumen.appendChild(card);
+    }
+  }
+
+  function mostrarDetalle(carreraSeleccionada) {
+    const registros = JSON.parse(localStorage.getItem('inscripciones') || '[]');
+    const filtrados = registros.filter(r => (r.carrera || '') === carreraSeleccionada);
+
+    tbodyDetalle.innerHTML = '';
+    for (const r of filtrados) {
+      const costo = calcularCostoPorColegio(r.colegio);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="p-2 border-t">${r.nombres_completos || ''}</td>
+        <td class="p-2 border-t">${r.cedula || ''}</td>
+        <td class="p-2 border-t">${r.correo || ''}</td>
+        <td class="p-2 border-t">${getTipoColegioFromText(r.colegio)}</td>
+        <td class="p-2 border-t">$${costo.toFixed(2)}</td>
+      `;
+      tbodyDetalle.appendChild(tr);
+    }
+
+    vistaResumen.classList.add('hidden');
+    vistaDetalle.classList.remove('hidden');
+    btnVolver.classList.remove('hidden');
+
+    // preseleccionar en el filtro
+    filtroCarrera.value = carreraSeleccionada;
+  }
+
+  // Eventos
+  filtroCarrera?.addEventListener('change', (e) => {
+    const val = e.target.value;
+    if (!val) {
+      // volver al resumen
+      vistaDetalle.classList.add('hidden');
+      btnVolver.classList.add('hidden');
+      vistaResumen.classList.remove('hidden');
+    } else {
+      mostrarDetalle(val);
+    }
+  });
+
+  btnVolver?.addEventListener('click', () => {
+    filtroCarrera.value = '';
+    vistaDetalle.classList.add('hidden');
+    btnVolver.classList.add('hidden');
+    vistaResumen.classList.remove('hidden');
+  });
+
+  logoutBtn?.addEventListener('click', () => {
+    try { localStorage.removeItem(AUTH_KEY); } catch (e) {}
+    window.location.href = '/revision';
+  });
+
+  // Init
+  renderResumen();
+</script>

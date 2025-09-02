@@ -1,0 +1,95 @@
+---
+export interface Props {
+  title?: string;
+  subtitle?: string;
+  description?: string;
+  primaryButton?: {
+    text: string;
+    href: string;
+  };
+  secondaryButton?: {
+    text: string;
+    href: string;
+  };
+  image?: string;
+}
+
+const {
+  title = "Transforma tu negocio con soluciones digitales",
+  subtitle = "Innovación • Calidad • Resultados",
+  description = "Desarrollamos soluciones web y móviles que impulsan el crecimiento de tu empresa. Desde diseño hasta implementación, estamos aquí para hacer realidad tu visión digital.",
+  primaryButton = { text: "Comenzar proyecto", href: "#contact" },
+  secondaryButton = { text: "Ver portafolio", href: "#portfolio" },
+  image = "/src/assets/hero-illustration.svg"
+} = Astro.props;
+---
+
+<section id="home" class="section-padding pt-32 pb-20 bg-gradient-to-br from-primary-50 via-white to-secondary-50">
+  <div class="container-custom">
+    <div class="grid lg:grid-cols-2 gap-12 items-center">
+      <!-- Content -->
+      <div class="space-y-8 animate-fade-in">
+        <div class="space-y-4">
+          <div class="inline-flex items-center px-4 py-2 rounded-full bg-primary-100 text-primary-700 text-sm font-medium">
+            <span class="w-2 h-2 bg-primary-500 rounded-full mr-2"></span>
+            {subtitle}
+          </div>
+          
+          <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
+            {title}
+          </h1>
+          
+          <p class="text-xl text-gray-600 leading-relaxed max-w-2xl">
+            {description}
+          </p>
+        </div>
+
+        <!-- Stats -->
+        <div class="grid grid-cols-3 gap-8 pt-8">
+          <div class="text-center">
+            <div class="text-3xl font-bold text-primary-600">500+</div>
+            <div class="text-sm text-gray-600">Proyectos completados</div>
+          </div>
+          <div class="text-center">
+            <div class="text-3xl font-bold text-primary-600">98%</div>
+            <div class="text-sm text-gray-600">Clientes satisfechos</div>
+          </div>
+          <div class="text-center">
+            <div class="text-3xl font-bold text-primary-600">24/7</div>
+            <div class="text-sm text-gray-600">Soporte disponible</div>
+          </div>
+        </div>
+
+        <!-- CTA Buttons -->
+        <div class="flex flex-col sm:flex-row gap-4 pt-8">
+          <a href={primaryButton.href} class="btn-primary text-center">
+            {primaryButton.text}
+          </a>
+          <a href={secondaryButton.href} class="btn-secondary text-center">
+            {secondaryButton.text}
+          </a>
+        </div>
+      </div>
+
+      <!-- Image/Illustration -->
+      <div class="relative animate-slide-up">
+        <div class="relative z-10">
+          <div class="w-full h-96 lg:h-[500px] bg-gradient-to-br from-primary-400 to-primary-600 rounded-2xl shadow-2xl flex items-center justify-center">
+            <div class="text-white text-center p-8">
+              <svg class="w-32 h-32 mx-auto mb-4 opacity-80" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+              </svg>
+              <p class="text-xl font-semibold">Tu visión digital</p>
+              <p class="text-primary-100">Hecha realidad</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Decorative elements -->
+        <div class="absolute -top-4 -right-4 w-24 h-24 bg-yellow-400 rounded-full opacity-20 animate-pulse"></div>
+        <div class="absolute -bottom-4 -left-4 w-16 h-16 bg-pink-400 rounded-full opacity-20 animate-pulse delay-1000"></div>
+        <div class="absolute top-1/2 -left-8 w-12 h-12 bg-green-400 rounded-full opacity-20 animate-pulse delay-500"></div>
+      </div>
+    </div>
+  </div>
+</section>

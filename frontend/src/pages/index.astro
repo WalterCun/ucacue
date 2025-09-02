@@ -1,0 +1,16 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Navbar from '../components/Navbar.astro';
+---
+
+<Layout title="UCACUE - Inscripciones" description="Sistema simple de inscripciones y revisión.">
+  <Navbar title="UCACUE" links={[{ name: 'Inscripción', href: '/inscripcion' }, { name: 'Revisión', href: '/revision' }]} />
+  <main class="container-custom py-16">
+    <h1 class="text-4xl font-bold mb-4">Bienvenido al sistema de inscripciones</h1>
+    <p class="text-gray-600 mb-8">Seleccione una opción para comenzar.</p>
+    <div class="flex gap-4">
+      <a href="/inscripcion" class="btn-primary">Ir a Inscripción</a>
+      <a href="/revision" class="btn-secondary">Ir a Revisión</a>
+    </div>
+  </main>
+</Layout>

@@ -1,0 +1,178 @@
+---
+export interface Props {
+  companyName?: string;
+  description?: string;
+  links?: Array<{
+    title: string;
+    items: Array<{
+      name: string;
+      href: string;
+    }>;
+  }>;
+  socialLinks?: Array<{
+    name: string;
+    href: string;
+    icon: string;
+  }>;
+}
+
+const {
+  companyName = "Tu Empresa",
+  description = "Transformamos ideas en realidades digitales. Especialistas en desarrollo web, aplicaciones móviles y soluciones tecnológicas innovadoras.",
+  links = [
+    {
+      title: "Servicios",
+      items: [
+        { name: "Desarrollo Web", href: "#services" },
+        { name: "Aplicaciones Móviles", href: "#services" },
+        { name: "E-commerce", href: "#services" },
+        { name: "Marketing Digital", href: "#services" }
+      ]
+    },
+    {
+      title: "Empresa",
+      items: [
+        { name: "Acerca de", href: "#about" },
+        { name: "Equipo", href: "#about" },
+        { name: "Carreras", href: "#careers" },
+        { name: "Blog", href: "#blog" }
+      ]
+    },
+    {
+      title: "Soporte",
+      items: [
+        { name: "Centro de ayuda", href: "#help" },
+        { name: "Documentación", href: "#docs" },
+        { name: "Contacto", href: "#contact" },
+        { name: "Estado del sistema", href: "#status" }
+      ]
+    }
+  ],
+  socialLinks = [
+    { name: "Twitter", href: "#", icon: "🐦" },
+    { name: "LinkedIn", href: "#", icon: "💼" },
+    { name: "GitHub", href: "#", icon: "📚" },
+    { name: "Instagram", href: "#", icon: "📷" }
+  ]
+} = Astro.props;
+---
+
+<footer class="bg-gray-900 text-white">
+  <div class="container-custom">
+    <!-- Main Footer Content -->
+    <div class="py-16">
+      <div class="grid lg:grid-cols-4 gap-8">
+        <!-- Company Info -->
+        <div class="lg:col-span-1">
+          <div class="mb-6">
+            <h3 class="text-2xl font-bold text-white mb-4">
+              {companyName}
+            </h3>
+            <p class="text-gray-400 leading-relaxed">
+              {description}
+            </p>
+          </div>
+          
+          <!-- Social Links -->
+          <div class="flex space-x-4">
+            {socialLinks.map((social) => (
+              <a 
+                href={social.href}
+                class="w-10 h-10 bg-gray-800 hover:bg-primary-600 rounded-lg flex items-center justify-center text-lg transition-all duration-200 hover:scale-110"
+                aria-label={social.name}
+              >
+                {social.icon}
+              </a>
+            ))}
+          </div>
+        </div>
+
+        <!-- Footer Links -->
+        {links.map((section) => (
+          <div>
+            <h4 class="text-lg font-semibold text-white mb-6">
+              {section.title}
+            </h4>
+            <ul class="space-y-3">
+              {section.items.map((item) => (
+                <li>
+                  <a 
+                    href={item.href}
+                    class="text-gray-400 hover:text-white transition-colors duration-200"
+                  >
+                    {item.name}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <!-- Newsletter Section -->
+    <div class="border-t border-gray-800 py-12">
+      <div class="text-center">
+        <h3 class="text-2xl font-bold text-white mb-4">
+          Mantente actualizado
+        </h3>
+        <p class="text-gray-400 mb-8 max-w-2xl mx-auto">
+          Suscríbete a nuestro boletín para recibir las últimas noticias, consejos y actualizaciones sobre tecnología y desarrollo.
+        </p>
+        
+        <form class="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
+          <input
+            type="email"
+            placeholder="tu@email.com"
+            class="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+            required
+          />
+          <button
+            type="submit"
+            class="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors duration-200"
+          >
+            Suscribirse
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Bottom Footer -->
+    <div class="border-t border-gray-800 py-8">
+      <div class="flex flex-col md:flex-row justify-between items-center">
+        <div class="text-gray-400 text-sm mb-4 md:mb-0">
+          © 2024 {companyName}. Todos los derechos reservados.
+        </div>
+        
+        <div class="flex space-x-6 text-sm text-gray-400">
+          <a href="#privacy" class="hover:text-white transition-colors">
+            Política de Privacidad
+          </a>
+          <a href="#terms" class="hover:text-white transition-colors">
+            Términos de Servicio
+          </a>
+          <a href="#cookies" class="hover:text-white transition-colors">
+            Política de Cookies
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Newsletter form handling
+  const newsletterForm = document.querySelector('footer form');
+  
+  if (newsletterForm) {
+    newsletterForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      
+      const email = newsletterForm.querySelector('input[type="email"]') as HTMLInputElement;
+      if (email && email.value) {
+        alert('¡Gracias por suscribirte! Te mantendremos informado.');
+        email.value = '';
+      }
+    });
+  }
+</script>
