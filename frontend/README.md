@@ -16,3 +16,4 @@ Rutas principales:
 - /inscripcion    Formulario de inscripción
 - /revision       Login para revisión (usuario: admin, sin contraseña)
 - /estad          Página protegida con la revisión de inscripciones
+- /estadisticas-de-inscripciones  Estadísticas: resumen por carrera y detalle con filtro

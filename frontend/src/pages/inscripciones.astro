@@ -1,0 +1,185 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Navbar from "../components/Navbar.astro";
+---
+
+<Layout title="UCACUE - Inscripciones" description="Resumen de inscripciones por carrera.">
+  <Navbar title="UCACUE" links={[{ name: "Inscripción", href: "/inscripcion" }, { name: "Revisión", href: "/revision" }]} />
+  <main class="container-custom py-10">
+    <h1 class="text-3xl font-bold mb-6">Inscripciones por carrera</h1>
+    <p class="text-sm text-gray-600 mb-4">Este resumen se construye a partir del JSON de <code>/inscripciones</code> entregado por el backend.</p>
+
+    <div id="estado" class="text-sm text-gray-600 mb-3">Cargando...</div>
+    <section id="contenedor" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></section>
+    
+    <!-- Sección de gráficos -->
+    <section id="charts" class="mt-10 hidden">
+      <h2 class="text-2xl font-semibold mb-4">Visualizaciones</h2>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white border rounded-lg p-4 shadow-sm">
+          <h3 class="font-medium mb-2">Porcentaje de inscripciones por carrera</h3>
+          <canvas id="donutChart" height="240"></canvas>
+        </div>
+        <div class="bg-white border rounded-lg p-4 shadow-sm">
+          <h3 class="font-medium mb-2">Total de inscripciones por carrera</h3>
+          <canvas id="barChart" height="240"></canvas>
+        </div>
+      </div>
+    </section>
+  </main>
+</Layout>
+
+<script>
+  // Cargar Chart.js desde CDN (solo cuando el DOM esté listo)
+  function ensureChartJs() {
+    return new Promise((resolve, reject) => {
+      if (window.Chart) return resolve(window.Chart);
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js';
+      s.async = true;
+      s.onload = () => resolve(window.Chart);
+      s.onerror = () => reject(new Error('No se pudo cargar Chart.js'));
+      document.head.appendChild(s);
+    });
+  }
+
+  async function fetchInscripciones() {
+    try {
+      const res = await fetch('http://localhost:8080/inscripciones');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    } catch (e) {
+      console.error('No se pudieron cargar las inscripciones', e);
+      return [];
+    }
+  }
+
+  function agruparPorCarrera(registros) {
+    const map = new Map(); // nombreCarrera -> conteo
+    for (const r of registros) {
+      const nombre = r?.carrera?.nombre || r?.carrera || 'Sin carrera';
+      map.set(nombre, (map.get(nombre) || 0) + 1);
+    }
+    return map;
+  }
+
+  function renderResumen(map) {
+    const cont = document.getElementById('contenedor');
+    const estado = document.getElementById('estado');
+    cont.innerHTML = '';
+
+    const items = Array.from(map.entries())
+      .sort((a,b) => b[1] - a[1]);
+
+    if (items.length === 0) {
+      estado.textContent = 'No hay inscripciones registradas.';
+      document.getElementById('charts')?.classList.add('hidden');
+      return { labels: [], counts: [] };
+    }
+
+    estado.textContent = `Total de carreras con inscripciones: ${items.length}`;
+
+    for (const [nombre, cantidad] of items) {
+      const card = document.createElement('div');
+      card.className = 'p-4 bg-white border rounded-lg shadow-sm flex items-center justify-between';
+      card.innerHTML = `<div><div class="text-sm text-gray-500">Carrera</div><div class="text-lg font-semibold">${nombre}</div></div><div class="text-3xl font-bold text-primary-600">${cantidad}</div>`;
+      cont.appendChild(card);
+    }
+
+    const labels = items.map(i => i[0]);
+    const counts = items.map(i => i[1]);
+    return { labels, counts };
+  }
+
+  let donutInstance = null;
+  let barInstance = null;
+  
+  function renderCharts(labels, counts) {
+    const chartSection = document.getElementById('charts');
+    if (!labels?.length || !counts?.length) {
+      chartSection?.classList.add('hidden');
+      return;
+    }
+    chartSection?.classList.remove('hidden');
+
+    const colors = labels.map((_, i) => {
+      const base = [
+        '#3b82f6','#22c55e','#f59e0b','#ef4444','#8b5cf6',
+        '#06b6d4','#d946ef','#84cc16','#f97316','#0ea5e9'
+      ];
+      return base[i % base.length];
+    });
+
+    const donutCtx = document.getElementById('donutChart').getContext('2d');
+    const barCtx = document.getElementById('barChart').getContext('2d');
+
+    // Destroy previous instances to avoid duplicate canvas warnings
+    if (donutInstance) { donutInstance.destroy(); }
+    if (barInstance) { barInstance.destroy(); }
+
+    donutInstance = new Chart(donutCtx, {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{
+          data: counts,
+          backgroundColor: colors,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const total = counts.reduce((a,b) => a+b, 0) || 1;
+                const val = ctx.parsed;
+                const pct = (val * 100) / total;
+                return `${ctx.label}: ${val} (${pct.toFixed(1)}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+
+    barInstance = new Chart(barCtx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Inscritos',
+          data: counts,
+          backgroundColor: colors.map(c => c + 'cc'),
+          borderColor: colors,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, precision: 0, ticks: { stepSize: 1 } }
+        }
+      }
+    });
+  }
+  
+  async function init() {
+    const estado = document.getElementById('estado');
+    estado.textContent = 'Cargando...';
+    const registros = await fetchInscripciones();
+    const agrupado = agruparPorCarrera(registros);
+    const { labels, counts } = renderResumen(agrupado);
+    try {
+      await ensureChartJs();
+      renderCharts(labels, counts);
+    } catch (e) {
+      console.warn('No se mostrarán gráficos:', e?.message || e);
+      document.getElementById('charts')?.classList.add('hidden');
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+</script>

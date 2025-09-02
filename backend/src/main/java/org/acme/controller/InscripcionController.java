@@ -30,7 +30,6 @@ public class InscripcionController {
     }
 
     @POST
-    @Transactional
     public Response create(@Valid CreateInscripcionDTO dto) {
         try {
             if (dto == null) {

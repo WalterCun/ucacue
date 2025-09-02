@@ -79,16 +79,30 @@ import Navbar from "../components/Navbar.astro";
   function buildResumenPorCarrera(registros) {
     const grupos = {};
     for (const r of registros) {
-      const c = r.carrera || 'Sin carrera';
-      grupos[c] = (grupos[c] || 0) + 1;
+      // r.carrera puede ser objeto { id, nombre, numeroEstudiante }
+      const nombreCarrera = r?.carrera?.nombre || r?.carrera || 'Sin carrera';
+      grupos[nombreCarrera] = (grupos[nombreCarrera] || 0) + 1;
     }
     return grupos;
   }
 
-  function renderResumen() {
-    const registros = JSON.parse(localStorage.getItem('inscripciones') || '[]');
+  async function fetchInscripciones() {
+    try {
+      const res = await fetch('http://localhost:8080/inscripciones');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    } catch (e) {
+      console.error('No se pudieron cargar las inscripciones', e);
+      return [];
+    }
+  }
+
+  async function renderResumen() {
+    const registros = await fetchInscripciones();
     const resumen = buildResumenPorCarrera(registros);
-    const carreras = Object.keys(resumen).sort();
+    // ordenar por conteo desc
+    const carreras = Object.keys(resumen).sort((a,b) => resumen[b]-resumen[a]);
     cargarCarrerasEnFiltro(carreras);
 
     vistaDetalle.classList.add('hidden');
@@ -106,20 +120,20 @@ import Navbar from "../components/Navbar.astro";
     }
   }
 
-  function mostrarDetalle(carreraSeleccionada) {
-    const registros = JSON.parse(localStorage.getItem('inscripciones') || '[]');
-    const filtrados = registros.filter(r => (r.carrera || '') === carreraSeleccionada);
+  async function mostrarDetalle(carreraSeleccionada) {
+    const registros = await fetchInscripciones();
+    const filtrados = registros.filter(r => (r?.carrera?.nombre || r?.carrera || '') === carreraSeleccionada);
 
     tbodyDetalle.innerHTML = '';
     for (const r of filtrados) {
-      const costo = calcularCostoPorColegio(r.colegio);
+      const costo = Number(r?.costo ?? calcularCostoPorColegio(r?.colegio?.tipo || ''));
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td class="p-2 border-t">${r.nombres_completos || ''}</td>
+        <td class="p-2 border-t">${r.nombre || ''}</td>
         <td class="p-2 border-t">${r.cedula || ''}</td>
-        <td class="p-2 border-t">${r.correo || ''}</td>
-        <td class="p-2 border-t">${getTipoColegioFromText(r.colegio)}</td>
-        <td class="p-2 border-t">$${costo.toFixed(2)}</td>
+        <td class="p-2 border-t">${r.email || ''}</td>
+        <td class="p-2 border-t">${r?.colegio?.tipo || ''}</td>
+        <td class="p-2 border-t">$${Number(costo).toFixed(2)}</td>
       `;
       tbodyDetalle.appendChild(tr);
     }
@@ -133,15 +147,16 @@ import Navbar from "../components/Navbar.astro";
   }
 
   // Eventos
-  filtroCarrera?.addEventListener('change', (e) => {
+  filtroCarrera?.addEventListener('change', async (e) => {
     const val = e.target.value;
     if (!val) {
       // volver al resumen
       vistaDetalle.classList.add('hidden');
       btnVolver.classList.add('hidden');
       vistaResumen.classList.remove('hidden');
+      await renderResumen();
     } else {
-      mostrarDetalle(val);
+      await mostrarDetalle(val);
     }
   });
 
