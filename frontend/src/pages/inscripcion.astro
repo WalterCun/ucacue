@@ -1,0 +1,204 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Navbar from "../components/Navbar.astro";
+---
+
+<Layout title="UCACUE - Inscripción" description="Formulario para registrar inscripción.">
+  <Navbar title="UCACUE" links={[{ name: "Inscripción", href: "/inscripcion" }, { name: "Revisión", href: "/revision" }]} />
+  <main class="container-custom py-10">
+    <h1 class="text-3xl font-bold mb-6">Formulario de inscripción</h1>
+
+    <form id="form-inscripcion" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
+      <div class="md:col-span-2">
+        <label class="label" for="nombre">Nombres completos</label>
+        <input id="nombre" name="nombre" class="input" placeholder="Ej: Walter Cun Bustamante" required />
+      </div>
+      <div>
+        <label class="label" for="cedula">Cédula</label>
+        <input id="cedula" name="cedula" class="input" required />
+      </div>
+      <div>
+        <label class="label" for="email">Correo electrónico</label>
+        <input id="email" name="email" type="email" class="input" required />
+      </div>
+      <div>
+        <label class="label" for="colegio_id">Colegio</label>
+        <select id="colegio_id" name="colegio_id" class="input" required>
+          <option value="">Seleccione un colegio</option>
+        </select>
+        <p class="text-xs text-gray-500 mt-1">Se aplicará un 3% de descuento si el colegio es Fiscal o Fiscomisional.</p>
+      </div>
+      <div>
+        <label class="label" for="carrera_id">Carrera</label>
+        <select id="carrera_id" name="carrera_id" class="input" required>
+          <option value="">Seleccione una carrera</option>
+        </select>
+      </div>
+
+      <div class="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2 bg-white border rounded p-3">
+        <div>
+          <div class="text-xs text-gray-500">Subtotal</div>
+          <div id="subtotal-view" class="text-lg font-semibold">$100.00</div>
+        </div>
+        <div>
+          <div class="text-xs text-gray-500">Descuento</div>
+          <div id="descuento-view" class="text-lg font-semibold">$0.00</div>
+        </div>
+        <div>
+          <div class="text-xs text-gray-500">Total a pagar</div>
+          <div id="total-view" class="text-lg font-semibold">$100.00</div>
+        </div>
+      </div>
+
+      <div class="md:col-span-2 flex gap-2 mt-2">
+        <button id="btn-submit" type="submit" class="btn-primary">Registrar</button>
+        <a href="/estadisticas-de-inscripciones" class="btn-secondary">Ver estadísticas</a>
+      </div>
+
+      <p id="msg" class="md:col-span-2 text-sm mt-2"></p>
+    </form>
+  </main>
+</Layout>
+
+<script>
+  const BASE_VALUE = 100;
+
+  function showMessage(text, ok = true) {
+    const el = document.getElementById('msg');
+    el.textContent = text;
+    el.className = `md:col-span-2 text-sm mt-2 ${ok ? 'text-green-700' : 'text-red-600'}`;
+  }
+
+  function validarEmail(email) {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
+    return re.test(String(email || '').trim());
+  }
+
+  // Validador de cédula ecuatoriana (10 dígitos, módulo 10)
+  function validarCedulaEc(cedula) {
+    const c = String(cedula || '').trim();
+    if (!/^\d{10}$/.test(c)) return false;
+    const provincia = parseInt(c.slice(0, 2), 10);
+    if (!((provincia >= 1 && provincia <= 24) || provincia === 30)) return false;
+    const digitoVerificador = parseInt(c[9], 10);
+    let suma = 0;
+    for (let i = 0; i < 9; i++) {
+      let num = parseInt(c[i], 10);
+      if (i % 2 === 0) { // posiciones impares 0-based
+        num *= 2;
+        if (num > 9) num -= 9;
+      }
+      suma += num;
+    }
+    const decenaSuperior = Math.ceil(suma / 10) * 10;
+    const verificador = (decenaSuperior - suma) % 10;
+    return verificador === digitoVerificador;
+  }
+
+  async function enviar(payload) {
+    const res = await fetch('http://localhost:8080/inscripciones', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(()=>'');
+      throw new Error(`Error ${res.status}: ${text || res.statusText}`);
+    }
+    return res.json().catch(()=>({ ok: true }));
+  }
+
+  function actualizarTotales() {
+    const subtotal = Number(BASE_VALUE.toFixed(2));
+    const sel = document.getElementById('colegio_id');
+    const tipo = sel?.selectedOptions?.[0]?.dataset?.tipo || '';
+    const t = String(tipo).toLowerCase();
+    const aplica = t.includes('fiscal') || t.includes('fiscomisional') || t.includes('cominional');
+    const descuento = aplica ? Number((BASE_VALUE * 0.03).toFixed(2)) : 0;
+    const total = Number((subtotal - descuento).toFixed(2));
+    document.getElementById('subtotal-view').textContent = `$${subtotal.toFixed(2)}`;
+    document.getElementById('descuento-view').textContent = `$${descuento.toFixed(2)}`;
+    document.getElementById('total-view').textContent = `$${total.toFixed(2)}`;
+    return { subtotal, descuento, total };
+  }
+
+  async function cargarDropdowns() {
+    const selColegio = document.getElementById('colegio_id');
+    const selCarrera = document.getElementById('carrera_id');
+    try {
+      const [respColegios, respCarreras] = await Promise.all([
+        fetch('http://localhost:8080/colegios'),
+        fetch('http://localhost:8080/carreras')
+      ]);
+      const colegios = respColegios.ok ? await respColegios.json() : [];
+      const carreras = respCarreras.ok ? await respCarreras.json() : [];
+      // poblar colegios
+      selColegio.innerHTML = '<option value="">Seleccione un colegio</option>' +
+        (Array.isArray(colegios) ? colegios.map(c => `<option value="${c.id}" data-tipo="${c.tipo || ''}">${c.nombre} - ${c.ciudad}</option>`).join('') : '');
+      // poblar carreras
+      selCarrera.innerHTML = '<option value="">Seleccione una carrera</option>' +
+        (Array.isArray(carreras) ? carreras.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('') : '');
+      actualizarTotales();
+    } catch (e) {
+      console.error('Error cargando catálogos', e);
+    }
+  }
+
+  function setSubmitting(submitting) {
+    const btn = document.getElementById('btn-submit');
+    if (btn) { btn.disabled = !!submitting; btn.textContent = submitting ? 'Enviando...' : 'Registrar'; }
+  }
+
+  document.getElementById('colegio_id')?.addEventListener('change', actualizarTotales);
+
+  document.getElementById('form-inscripcion')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const data = Object.fromEntries(new FormData(form).entries());
+    // Validaciones
+    if (!validarCedulaEc(data.cedula)) {
+      showMessage('Cédula inválida. Verifique e intente nuevamente.', false);
+      return;
+    }
+    if (!validarEmail(data.email)) {
+      showMessage('Correo inválido.', false);
+      return;
+    }
+    if (!data.colegio_id || !data.carrera_id) {
+      showMessage('Seleccione colegio y carrera.', false);
+      return;
+    }
+
+    const { subtotal, descuento, total } = actualizarTotales();
+
+    const payload = {
+      nombre: String(data.nombre || '').trim(),
+      cedula: String(data.cedula || '').trim(),
+      email: String(data.email || '').trim(),
+      colegio_id: String(data.colegio_id || '').trim(),
+      carrera_id: String(data.carrera_id || '').trim(),
+      subtotal,
+      descuento,
+      costo: total
+    };
+
+    try {
+      setSubmitting(true);
+      showMessage('Enviando...', true);
+      await enviar(payload);
+      showMessage('Inscripción registrada correctamente.', true);
+      form.reset();
+      await cargarDropdowns(); // recarga totales y selects
+    } catch (err) {
+      console.error(err);
+      showMessage(err?.message || 'Ocurrió un error al registrar.', false);
+    } finally {
+      setSubmitting(false);
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', () => {
+    cargarDropdowns();
+    actualizarTotales();
+  });
+</script>
